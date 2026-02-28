@@ -147,13 +147,28 @@ def submit_leave_request(
 
 @tool
 def get_hr_policy(policy_topic: str) -> str:
-    """Retrieve HR policy text from the MCP Policy Server.
+    """Retrieve HR policy text for a known topic from the MCP server (ChromaDB-backed).
+
+    Use this when the exact policy topic is known.
 
     Args:
         policy_topic: One of: remote_work, leave, performance,
                       code_of_conduct, compensation. Partial names accepted.
     """
     return _mcp("get_hr_policy", topic=policy_topic)
+
+
+@tool
+def search_hr_policies(query: str, k: int = 3) -> str:
+    """Search HR policies using hybrid semantic + keyword (BM25) retrieval (ChromaDB RAG).
+
+    Use this for open-ended policy questions or when the topic is not known exactly.
+
+    Args:
+        query: Natural-language question or keyword (e.g. 'parental leave', '401k match').
+        k:     Number of results to return (default 3).
+    """
+    return _mcp("search_hr_policies", query=query, k=k)
 
 # ─────────────────────────────────────────────
 # HR Tools — Generative (local, no DB needed)
@@ -302,8 +317,9 @@ HR_TOOLS = [
     list_employees,
     check_leave_balance,
     submit_leave_request,
-    # Policy tool (MCP)
+    # Policy tools (MCP → ChromaDB RAG)
     get_hr_policy,
+    search_hr_policies,
     # Generative tools (local)
     generate_onboarding_checklist,
     generate_interview_questions,
@@ -346,8 +362,12 @@ INTENT_PROMPTS: dict[str, str] = {
     "policy_question": (
         "You are an HR Policy expert. "
         "Answer questions about company HR policies with clarity and accuracy. "
-        "Use get_hr_policy to retrieve exact policy text. "
-        "If a topic isn't covered, clearly state what you can help with."
+        "Use get_hr_policy when the user asks about a specific, named policy topic "
+        "(e.g. 'remote work', 'leave', 'performance', 'code of conduct', 'compensation'). "
+        "Use search_hr_policies for open-ended questions or when the topic is unclear "
+        "(e.g. '401k', 'parental leave weeks', 'harassment reporting'). "
+        "Policies are stored in a vector database — search_hr_policies uses hybrid "
+        "semantic + keyword retrieval for best results."
     ),
     "onboarding": (
         "You are an HR Onboarding specialist. "
