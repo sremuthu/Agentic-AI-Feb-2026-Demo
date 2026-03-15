@@ -13,16 +13,21 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
 
-# --- Anthropic ---
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "claude-sonnet-4-6")
+# --- OpenAI ---
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")
 
 # --- Database ---
 SQLITE_DB_PATH = PROJECT_ROOT / os.getenv("SQLITE_DB_PATH", "data/feedback_system.db")
 
 # --- ChromaDB ---
 CHROMA_PERSIST_DIR = PROJECT_ROOT / os.getenv("CHROMA_PERSIST_DIR", "data/chroma_db")
-CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "feedback_embeddings")
+CHROMA_COLLECTION_FEEDBACK = os.getenv("CHROMA_COLLECTION_FEEDBACK", "feedback_embeddings")
+CHROMA_COLLECTION_TICKETS = os.getenv("CHROMA_COLLECTION_TICKETS", "ticket_embeddings")
+CHROMA_COLLECTION_PRODUCT_DOCS = os.getenv("CHROMA_COLLECTION_PRODUCT_DOCS", "product_docs")
+
+# --- Product Documentation ---
+PRODUCT_DOCS_DIR = PROJECT_ROOT / os.getenv("PRODUCT_DOCS_DIR", "data/product_docs")
 
 # --- Classification ---
 CLASSIFICATION_CONFIDENCE_THRESHOLD = float(

@@ -1,6 +1,6 @@
 # TASKS.md — Intelligent User Feedback Analysis and Action System
 
-> **Tech Stack:** LangGraph · Docker · Azure · SQLite · ChromaDB · Streamlit · Python
+> **Tech Stack:** LangGraph · OpenAI · Docker · Azure · SQLite · ChromaDB (RAG) · Streamlit · Python
 
 ---
 
@@ -55,15 +55,15 @@
 
 | ID | Task | Description | Acceptance Criteria | Priority | Complexity | Depends On | Status |
 |---|---|---|---|---|---|---|---|
-| BE-04 | CSV Reader Agent | Reads and parses `app_store_reviews.csv` and `support_emails.csv`; normalises into a unified internal schema; passes data downstream in the graph | Handles missing fields and encoding errors gracefully | P0 | M | BE-01, BE-02, DB-07 | 🔲 |
-| BE-05 | Feedback Classifier Agent | Classifies each feedback item into Bug / Feature Request / Praise / Complaint / Spam with a confidence score using an LLM call | Accuracy ≥ 80% vs `expected_classifications.csv` | P0 | L | BE-04, PM-04 | 🔲 |
-| BE-06 | Bug Analysis Agent | For items classified as Bug: extracts steps to reproduce, platform info, OS/device, app version, and severity assessment | Structured bug fields populated for all Bug items | P1 | L | BE-05 | 🔲 |
-| BE-07 | Feature Extractor Agent | For Feature Request items: identifies the requested feature, estimates user impact/demand, and extracts affected user segments | Feature summary and impact score populated | P1 | L | BE-05 | 🔲 |
-| BE-08 | Ticket Creator Agent | Generates a structured ticket for each actionable item (Bug/Feature/Complaint); logs output to `generated_tickets.csv` | All tickets have required fields; CSV file created | P0 | L | BE-06, BE-07, PM-05 | 🔲 |
-| BE-09 | Quality Critic Agent | Reviews each generated ticket for completeness and accuracy; flags or rewrites low-quality tickets before final output | No ticket missing critical fields; rewrite rate logged | P1 | M | BE-08 | 🔲 |
-| BE-10 | LangGraph orchestration | Wire all agents into a LangGraph `StateGraph`; define state schema, edges, and conditional routing (e.g., skip Bug Analysis for non-Bug items) | Full pipeline runs end-to-end on mock data | P0 | L | BE-04 – BE-09 | 🔲 |
-| BE-11 | Metrics collection | After pipeline run, compute and write to `metrics.csv`: total processed, counts per category, avg confidence, processing time | `metrics.csv` populated after each run | P1 | S | BE-10 | 🔲 |
-| BE-12 | Error handling & retry logic | Wrap all LLM calls in try/except with retry (exponential backoff); log errors without crashing the pipeline | Pipeline completes even if individual items fail | P1 | M | BE-10 | 🔲 |
+| BE-04 | CSV Reader Agent | Reads and parses CSVs; normalises into unified schema; **stores all feedback in RAG** for duplicate detection | Handles missing fields gracefully; feedback in ChromaDB | P0 | M | BE-01, BE-02, DB-07 | ✅ Done |
+| BE-05 | Feedback Classifier Agent | Classifies each feedback item into Bug / Feature Request / Praise / Complaint / Spam with confidence score via **OpenAI** | Accuracy ≥ 80% vs `expected_classifications.csv` | P0 | L | BE-04, PM-04 | ✅ Done |
+| BE-06 | Bug Analysis Agent | Extracts bug details; **uses product docs RAG** to match known bugs and identify root causes | Structured bug fields populated; known_bug_match from RAG | P1 | L | BE-05 | ✅ Done |
+| BE-07 | Feature Extractor Agent | Extracts feature details; **uses product docs RAG** to check roadmap and existing features | Feature summary + impact + planned_version from RAG | P1 | L | BE-05 | ✅ Done |
+| BE-08 | Ticket Creator Agent | Creates structured tickets; **uses ticket RAG for duplicate detection**; stores new tickets in RAG | Tickets created; duplicates flagged; tickets in ChromaDB | P0 | L | BE-06, BE-07, PM-05 | ✅ Done |
+| BE-09 | Quality Critic Agent | Reviews tickets for completeness; auto-revises low-quality tickets (score < 0.7) | No ticket missing critical fields; rewrite rate logged | P1 | M | BE-08 | ✅ Done |
+| BE-10 | LangGraph orchestration | All 6 agents wired in LangGraph `StateGraph`; sequential flow with specialist agents filtering by category | Full pipeline compiles and runs end-to-end | P0 | L | BE-04 – BE-09 | ✅ Done |
+| BE-11 | Metrics collection | Integrated into pipeline `save_outputs` node; writes to `metrics.csv` and SQLite | `metrics.csv` populated after each run | P1 | S | BE-10 | ✅ Done |
+| BE-12 | Error handling & retry logic | Every agent wraps LLM calls in try/except; errors collected in state without crashing pipeline | Pipeline completes even if individual items fail | P1 | M | BE-10 | ✅ Done |
 
 ---
 
@@ -71,13 +71,14 @@
 
 | ID | Task | Description | Acceptance Criteria | Priority | Complexity | Depends On | Status |
 |---|---|---|---|---|---|---|---|
-| FE-01 | App skeleton & navigation | Create `app.py` with Streamlit multi-page layout: Dashboard, Configuration, Manual Override, Analytics | App boots with no errors | P0 | S | DB-01 | 🔲 |
-| FE-02 | Dashboard page | Show overview: number of feedback items processed, breakdown by category (pie/bar chart), latest generated tickets table | Live data from `generated_tickets.csv` or DB | P0 | M | FE-01, BE-08 | 🔲 |
-| FE-03 | Pipeline trigger UI | Button to upload/select CSV files and trigger the full pipeline run; show real-time progress/status | Pipeline starts on click; progress visible | P0 | M | FE-01, BE-10 | 🔲 |
-| FE-04 | Configuration panel | Sliders/inputs for classification confidence threshold, priority mappings, and model selection; persist settings to `.env` or config file | Changed settings affect next pipeline run | P1 | M | FE-01, DB-07 | 🔲 |
-| FE-05 | Manual override page | Table of generated tickets with inline edit capability; allow changing category, priority, and title; save changes back to DB/CSV | Edited tickets saved and reflected in Dashboard | P1 | L | FE-02 | 🔲 |
-| FE-06 | Analytics page | Show processing statistics: accuracy vs expected classifications, time per agent, confidence score distribution | Charts render with real data | P2 | M | FE-01, BE-11 | 🔲 |
-| FE-07 | Processing log viewer | Scrollable view of `processing_log.csv` with filter by agent name and log level | Log entries visible in UI | P2 | S | FE-01, DB-06 | 🔲 |
+| FE-01 | App skeleton & navigation | Create `app.py` with Streamlit multi-page layout: Dashboard, Run Pipeline, Configuration, Manual Override, Analytics, Processing Log, Product Docs | App boots with no errors | P0 | S | DB-01 | ✅ Done |
+| FE-02 | Dashboard page | Show overview: number of feedback items processed, breakdown by category (pie/bar chart), latest generated tickets table | Live data from `generated_tickets.csv` or DB | P0 | M | FE-01, BE-08 | ✅ Done |
+| FE-03 | Pipeline trigger UI | Button to upload/select CSV files and trigger the full pipeline run; show real-time progress/status | Pipeline starts on click; progress visible | P0 | M | FE-01, BE-10 | ✅ Done |
+| FE-04 | Configuration panel | Sliders/inputs for classification confidence threshold, priority mappings, and model selection; persist settings to `.env` or config file | Changed settings affect next pipeline run | P1 | M | FE-01, DB-07 | ✅ Done |
+| FE-05 | Manual override page | Table of generated tickets with inline edit capability; allow changing category, priority, and title; save changes back to DB/CSV | Edited tickets saved and reflected in Dashboard | P1 | L | FE-02 | ✅ Done |
+| FE-06 | Analytics page | Show processing statistics: accuracy vs expected classifications, time per agent, confidence score distribution | Charts render with real data | P2 | M | FE-01, BE-11 | ✅ Done |
+| FE-07 | Processing log viewer | Scrollable view of `processing_log.csv` with filter by agent name and log level | Log entries visible in UI | P2 | S | FE-01, DB-06 | ✅ Done |
+| FE-08 | Product docs upload | Upload technical documentation (.md/.txt) into product docs RAG; view/delete existing docs; re-index into ChromaDB | Docs uploaded and indexed; chunk count shown | P1 | M | FE-01, DB-04 | ✅ Done |
 
 ---
 
